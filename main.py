@@ -5,11 +5,10 @@ import sqlite3
 from datetime import datetime
 from email_validator import validate_email, EmailNotValidError
 
-# ---------------- DATABASE SETUP ----------------
+# ---------------- DB SETUP ----------------
 conn = sqlite3.connect("system.db")
 cursor = conn.cursor()
 
-# ✅ Create tables
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS employees (
     EmpID TEXT,
@@ -30,19 +29,16 @@ CREATE TABLE IF NOT EXISTS error_logs (
 
 conn.commit()
 
-# ✅ Clear logs (clean run)
 cursor.execute("DELETE FROM error_logs")
 conn.commit()
 
-
-# ---------------- LOAD EXCEL (ONE-TIME) ----------------
+# ---------------- LOAD EXCEL (RUN ONLY ONCE) ----------------
 def load_excel_to_db():
     df = pd.read_excel("input.xlsx", sheet_name="EmployeeData")
     df.to_sql("employees", conn, if_exists="replace", index=False)
-    print("✅ Excel data loaded into DB")
+    print("✅ Excel loaded into DB")
 
-
-# ---------------- LOG FUNCTION ----------------
+# ---------------- LOG ----------------
 def log_error(error_type, message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute(
@@ -51,7 +47,6 @@ def log_error(error_type, message):
     )
     conn.commit()
 
-
 # ---------------- EMAIL VALIDATION ----------------
 def is_valid_email(email):
     try:
@@ -59,7 +54,6 @@ def is_valid_email(email):
         return True
     except EmailNotValidError:
         return False
-
 
 # ---------------- SEND EMAIL ----------------
 def send_email(to_email, manager_name, file_path):
@@ -72,13 +66,10 @@ def send_email(to_email, manager_name, file_path):
 
         mail.Body = f"""Hello {manager_name},
 
-I hope this message finds you well.
+Please find attached your team’s employee report.
+Only validated records were processed. Invalid entries were logged.
 
-Please find attached the employee report for your team. The data has been validated and processed, and any invalid records were logged in the system for review.
-
-Kindly review the report and let us know if any updates are required.
-
-Best regards,  
+Regards,
 HR Team
 """
 
@@ -89,38 +80,35 @@ HR Team
 
     except Exception as e:
         log_error("EMAIL_ERROR", f"{to_email} -> {e}")
-        print(f"❌ Email failed for {to_email}")
-
 
 # ---------------- MAIN ----------------
 
-# ✅ STEP 1: OPTIONAL (run only first time)
+# ✅ RUN THIS ONLY FIRST TIME
 #load_excel_to_db()
 
-# ✅ STEP 2: READ FROM DATABASE (MAIN CHANGE 🔥)
 df = pd.read_sql("SELECT * FROM employees", conn)
 
-print("✅ Data fetched from database")
+df.columns = df.columns.str.strip()
 
-# ✅ Required columns
+print("✅ Data fetched from database")
+print("Columns:", df.columns)
+
 required_cols = ["EmpID", "EmpName", "ManagerName", "ManagerEmail"]
 
 for col in required_cols:
     if col not in df.columns:
-        log_error("DATA_ERROR", f"Missing column: {col}")
+        print(f"❌ Missing column: {col}")
         exit()
 
 valid_rows = []
 
-# ✅ Check missing data
+# ✅ MISSING DATA CHECK
 for idx, row in df.iterrows():
     is_valid_row = True
-
     for col in required_cols:
         if pd.isna(row[col]):
             log_error("MISSING_DATA", f"Row {idx} missing {col}")
             is_valid_row = False
-
     if is_valid_row:
         valid_rows.append(row)
 
@@ -128,34 +116,43 @@ df_clean = pd.DataFrame(valid_rows)
 
 final_rows = []
 
-# ✅ Validate email + domain restriction
-for idx, row in df_clean.iterrows():
-    email = row["ManagerEmail"]
+# ✅ EMAIL + DOMAIN VALIDATION
+for _, row in df_clean.iterrows():
+    email_raw = row["ManagerEmail"]
 
-    # Format check
+    if pd.isna(email_raw):
+        log_error("MISSING_DATA", "Email missing")
+        continue
+
+    email = str(email_raw).strip().lower()
+
+    print("Checking email:", email)
+
     if not is_valid_email(email):
         log_error("VALIDATION_ERROR", email)
         continue
 
-    # Domain restriction
     if not email.endswith("@shell.com"):
         log_error("INVALID_DOMAIN", email)
         continue
 
+    row["ManagerEmail"] = email
     final_rows.append(row)
 
 final_df = pd.DataFrame(final_rows)
 
-# ✅ Group data
+if final_df.empty:
+    print("❌ No valid data to process")
+    conn.close()
+    exit()
+
 grouped = final_df.groupby("ManagerEmail")
 
 print(f"✅ Managers found: {len(grouped)}")
 
-# ✅ Folder
 folder = "reports_" + datetime.now().strftime("%Y%m%d")
 os.makedirs(folder, exist_ok=True)
 
-# ✅ Process
 for email, group in grouped:
     manager_name = group["ManagerName"].iloc[0]
 
@@ -166,9 +163,7 @@ for email, group in grouped:
 
     send_email(email, manager_name, file_path)
 
-# ✅ Summary
-error_count = pd.read_sql(
-    "SELECT COUNT(*) as count FROM error_logs", conn)["count"][0]
+error_count = pd.read_sql("SELECT COUNT(*) as c FROM error_logs", conn)["c"][0]
 
 summary = pd.DataFrame([{
     "Total Employees Processed": len(final_df),
@@ -180,5 +175,4 @@ summary.to_excel("summary.xlsx", index=False)
 
 print("✅ Summary report generated")
 
-# ✅ Close DB
 conn.close()
