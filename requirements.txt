@@ -1,0 +1,11 @@
+# Data processing
+pandas>=1.5.0
+
+# Excel file handling
+openpyxl>=3.0.0
+
+# Email validation
+email-validator>=2.0.0
+
+# Outlook email automation (Windows only)
+pywin32>=305
