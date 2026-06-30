@@ -1,0 +1,16 @@
+# Ignore database
+system.db
+
+# Ignore reports
+reports_*
+
+# Ignore summary
+summary.xlsx
+
+# Ignore python cache
+__pycache__/
+*.pyc
+
+# Ignore virtual environment
+.venv/
+env/
