@@ -1,17 +1,17 @@
 # Employee Data Validation System
 
 ## Description
-A database-driven system that validates employee data, logs errors, and processes only valid records.
+A database-driven system that validates employee data, logs errors, and processes only valid records for report generation and email automation.
 
 ## Features
-- Data validation
-- Error logging (SQLite)
-- Domain restriction (@shell.com)
-- Report generation
-- Email automation
+- Data validation and filtering  
+- Error logging using SQLite  
+- Domain restriction (@shell.com)  
+- Automated report generation  
+- Email automation  
 
-## Flow
-Excel → Database → Validation → Logging → Processing → Reporting → Email
+## Workflow
+Excel → Database → Validation → Logging → Processing → Reporting → Email  
 
-## Note
-Invalid data is logged and skipped instead of being corrected.
+## Key Point
+Invalid data is logged and skipped to ensure only accurate data is processed.
