@@ -36,7 +36,7 @@ conn.commit()
 def load_excel_to_db():
     df = pd.read_excel("input.xlsx", sheet_name="EmployeeData")
     df.to_sql("employees", conn, if_exists="replace", index=False)
-    print("✅ Excel loaded into DB")
+    print(" Data loaded into DB")
 
 # ---------------- LOG ----------------
 def log_error(error_type, message):
@@ -76,33 +76,32 @@ HR Team
         mail.Attachments.Add(os.path.abspath(file_path))
         mail.Send()
 
-        print(f"✅ Email sent to {to_email}")
+        print(f" Email sent to {to_email}")
 
     except Exception as e:
         log_error("EMAIL_ERROR", f"{to_email} -> {e}")
 
 # ---------------- MAIN ----------------
 
-# ✅ RUN THIS ONLY FIRST TIME
 #load_excel_to_db()
 
 df = pd.read_sql("SELECT * FROM employees", conn)
 
 df.columns = df.columns.str.strip()
 
-print("✅ Data fetched from database")
+print(" Data fetched from database")
 print("Columns:", df.columns)
 
 required_cols = ["EmpID", "EmpName", "ManagerName", "ManagerEmail"]
 
 for col in required_cols:
     if col not in df.columns:
-        print(f"❌ Missing column: {col}")
+        print(f" Missing column: {col}")
         exit()
 
 valid_rows = []
 
-# ✅ MISSING DATA CHECK
+#  MISSING DATA CHECK
 for idx, row in df.iterrows():
     is_valid_row = True
     for col in required_cols:
@@ -116,7 +115,7 @@ df_clean = pd.DataFrame(valid_rows)
 
 final_rows = []
 
-# ✅ EMAIL + DOMAIN VALIDATION
+#  EMAIL + DOMAIN VALIDATION
 for _, row in df_clean.iterrows():
     email_raw = row["ManagerEmail"]
 
@@ -142,13 +141,13 @@ for _, row in df_clean.iterrows():
 final_df = pd.DataFrame(final_rows)
 
 if final_df.empty:
-    print("❌ No valid data to process")
+    print(" No valid data to process")
     conn.close()
     exit()
 
 grouped = final_df.groupby("ManagerEmail")
 
-print(f"✅ Managers found: {len(grouped)}")
+print(f"Managers found: {len(grouped)}")
 
 folder = "reports_" + datetime.now().strftime("%Y%m%d")
 os.makedirs(folder, exist_ok=True)
@@ -159,7 +158,7 @@ for email, group in grouped:
     file_path = os.path.join(folder, f"{manager_name}.xlsx")
     group.to_excel(file_path, index=False)
 
-    print(f"✅ File created for {manager_name}")
+    print(f" File created for {manager_name}")
 
     send_email(email, manager_name, file_path)
 
@@ -173,6 +172,6 @@ summary = pd.DataFrame([{
 
 summary.to_excel("summary.xlsx", index=False)
 
-print("✅ Summary report generated")
+print(" Summary report generated")
 
 conn.close()
